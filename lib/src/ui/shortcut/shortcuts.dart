@@ -13,6 +13,7 @@ Map<ShortcutActivator, Intent> get defaultTerminalShortcuts {
     case TargetPlatform.macOS:
       return _defaultAppleShortcuts;
     case TargetPlatform.ohos:
+      return _defaultShortcuts;
   }
 }
 
