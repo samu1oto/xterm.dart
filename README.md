@@ -18,6 +18,8 @@
 
 > This package requires Flutter version >=3.0.0
 
+> **Dont use this fork for any other project. I cant guarantee its compatibility.**
+
 ## Screenshots
 
 <table>
