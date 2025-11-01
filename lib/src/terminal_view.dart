@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -48,7 +48,17 @@ class TerminalView extends StatefulWidget {
     this.readOnly = false,
     this.hardwareKeyboardOnly = false,
     this.simulateScroll = true,
+    this.showToolbar = true,
+    this.toolbarHeight = 36.0,
+    this.toolbarBuilder,
+    this.onModifierChanged,
   });
+
+  /// Toolbar for mobile platform.Only can be used on Connecter app.
+  final bool showToolbar;
+  final double toolbarHeight;
+  final Widget Function(BuildContext context, TerminalViewState state)? toolbarBuilder;
+  final void Function(bool ctrlPressed, bool altPressed)? onModifierChanged;
 
   /// The underlying terminal that this widget renders.
   final Terminal terminal;
@@ -146,6 +156,7 @@ class TerminalView extends StatefulWidget {
 }
 
 class TerminalViewState extends State<TerminalView> {
+  
   late FocusNode _focusNode;
 
   late final ShortcutManager _shortcutManager;
@@ -163,6 +174,50 @@ class TerminalViewState extends State<TerminalView> {
   late ScrollController _scrollController;
 
   RenderTerminal get renderTerminal => _viewportKey.currentContext!.findRenderObject() as RenderTerminal;
+
+  // 工具栏状态
+  bool _isCtrlPressed = false;
+  bool _isAltPressed = false;
+  Timer? _modifierResetTimer;
+
+  // 获取修饰键状态
+  bool get isCtrlPressed => _isCtrlPressed;
+  bool get isAltPressed => _isAltPressed;
+  void setCtrlPressed(bool pressed) {
+    if (_isCtrlPressed != pressed) {
+      setState(() {
+        _isCtrlPressed = pressed;
+      });
+      widget.onModifierChanged?.call(_isCtrlPressed, _isAltPressed);
+    }
+  }
+
+  void setAltPressed(bool pressed) {
+    if (_isAltPressed != pressed) {
+      setState(() {
+        _isAltPressed = pressed;
+      });
+      widget.onModifierChanged?.call(_isCtrlPressed, _isAltPressed);
+    }
+  }
+
+  void toggleCtrl() => setCtrlPressed(!_isCtrlPressed);
+  void toggleAlt() => setAltPressed(!_isAltPressed);
+
+  void resetModifiers() {
+    if (_isCtrlPressed || _isAltPressed){
+      setState(() {
+        _isCtrlPressed = false;
+        _isAltPressed = false;
+      });
+    }
+    widget.onModifierChanged?.call(false, false);
+  }
+
+  void _onCharacterInput() {
+    _modifierResetTimer?.cancel();
+    _modifierResetTimer = Timer(const Duration(milliseconds: 10), resetModifiers);
+  }
 
   @override
   void initState() {
@@ -197,7 +252,8 @@ class TerminalViewState extends State<TerminalView> {
     }
     _shortcutManager.shortcuts = widget.shortcuts ?? defaultTerminalShortcuts;
     super.didUpdateWidget(oldWidget);
-  }
+  } 
+  
 
   @override
   void dispose() {
@@ -314,10 +370,197 @@ class TerminalViewState extends State<TerminalView> {
     child = Container(
       color: widget.theme.background.withOpacity(widget.backgroundOpacity),
       padding: widget.padding,
-      child: child,
+      child: Column(
+        children: [
+          Expanded(child: child),
+          if (widget.showToolbar) _buildToolbar(),
+        ],
+      ),
     );
 
     return child;
+  }
+  
+  Widget _buildToolbar() {
+    if (widget.toolbarBuilder != null) {
+      return widget.toolbarBuilder!(context, this);
+    }
+
+    return Container(
+      height: widget.toolbarHeight,
+      decoration: BoxDecoration(
+        color: widget.theme.background,
+        border: Border(
+          top: BorderSide(color: widget.theme.foreground.withOpacity(0.3)),
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildToolbarButton('Ctrl', _isCtrlPressed, toggleCtrl),
+          _buildDivider(),
+          _buildToolbarButton('Alt', _isAltPressed, toggleAlt),
+          _buildDivider(),
+          _buildToolbarButton('Esc', false, () {
+            _sendKey(TerminalKey.escape);
+          }),
+          _buildDivider(),
+          _buildToolbarButton('Tab', false, () {
+            _sendKey(TerminalKey.tab);
+          }),
+          _buildDivider(),
+          _buildToolbarButton('Del', false, () {
+            _sendKey(TerminalKey.backspace);
+          }),
+          _buildDivider(),
+          _buildToolbarButton('←', false, () {
+            _sendKey(TerminalKey.arrowLeft);
+          }),
+          _buildDivider(),
+          _buildVerticalArrowButton(),
+          _buildDivider(),
+          _buildToolbarButton('→', false, () {
+            _sendKey(TerminalKey.arrowRight);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      width: 0.5,
+      height: widget.toolbarHeight,
+      color: widget.theme.foreground.withOpacity(0.3),
+    );
+  }
+
+  Widget _buildVerticalArrowButton() {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        height: widget.toolbarHeight,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 上箭头按钮
+            Expanded(
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () {
+                    _sendKey(TerminalKey.arrowUp);
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: widget.theme.foreground,
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(4),
+                      ),
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    '↑',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+            // 分隔线
+            Container(
+              width: double.infinity,
+              height: 0.5,
+              color: widget.theme.foreground.withOpacity(0.3),
+            ),
+            // 下箭头按钮
+            Expanded(
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () {
+                    _sendKey(TerminalKey.arrowDown);
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: widget.theme.foreground,
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(4),
+                        bottomRight: Radius.circular(4),
+                      ),
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    '↓',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolbarButton(String label, bool isActive, VoidCallback onPressed) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        height: widget.toolbarHeight,
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            backgroundColor: isActive 
+              ? widget.theme.cursor 
+              : Colors.transparent,
+            foregroundColor: isActive 
+              ? widget.theme.background 
+              : widget.theme.foreground,
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 0),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+  void _sendKey(TerminalKey key) {
+    final handled = widget.terminal.keyInput(
+      key,
+      ctrl: _isCtrlPressed,
+      alt: _isAltPressed,
+    );
+
+    if (handled) {
+      _scrollToBottom();
+    }
   }
 
   void requestKeyboard() {
@@ -370,13 +613,23 @@ class TerminalViewState extends State<TerminalView> {
   void _onInsert(String text) {
     final key = charToTerminalKey(text.trim());
 
+    final ctrl = HardwareKeyboard.instance.isControlPressed || _isCtrlPressed;
+    final alt = HardwareKeyboard.instance.isAltPressed || _isAltPressed;
     // On mobile platforms there is no guarantee that virtual keyboard will
     // generate hardware key events. So we need first try to send the key
     // as a hardware key event. If it fails, then we send it as a text input.
-    final consumed = key == null ? false : widget.terminal.keyInput(key);
+    final consumed = key == null ? false : widget.terminal.keyInput(
+      key,
+      ctrl: ctrl,
+      alt: alt,
+    );
 
     if (!consumed) {
       widget.terminal.textInput(text);
+    }
+
+    if (text.trim().isNotEmpty) {
+      _onCharacterInput();
     }
 
     _scrollToBottom();
@@ -414,18 +667,43 @@ class TerminalViewState extends State<TerminalView> {
 
     final handled = widget.terminal.keyInput(
       key,
-      ctrl: HardwareKeyboard.instance.isControlPressed,
-      alt: HardwareKeyboard.instance.isAltPressed,
+      ctrl: HardwareKeyboard.instance.isControlPressed || _isCtrlPressed,
+      alt: HardwareKeyboard.instance.isAltPressed || _isAltPressed,
       shift: HardwareKeyboard.instance.isShiftPressed,
     );
 
     if (handled) {
       _scrollToBottom();
+      if (_isValidCharacterInput(key, event)) {
+        _onCharacterInput();
+      }
     }
 
     return handled ? KeyEventResult.handled : KeyEventResult.ignored;
   }
 
+  bool _isValidCharacterInput(TerminalKey key, KeyEvent event) {
+    if (key == TerminalKey.escape ||
+        key == TerminalKey.tab ||
+        key == TerminalKey.backspace ||
+        key == TerminalKey.arrowUp ||
+        key == TerminalKey.arrowDown ||
+        key == TerminalKey.arrowLeft ||
+        key == TerminalKey.arrowRight ||
+        key == TerminalKey.enter) {
+      return false;
+    }
+
+    final logicalKey = event.logicalKey;
+    final keyLabel = logicalKey.keyLabel;
+  
+    if (keyLabel.isNotEmpty && keyLabel.length == 1) {
+      final char = keyLabel.codeUnitAt(0);
+      return char >= 32 && char <= 126;
+    }
+
+    return false;
+  }
   void _onKeyboardShow() {
     if (_focusNode.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
