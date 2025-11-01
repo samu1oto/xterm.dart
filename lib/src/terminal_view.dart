@@ -231,31 +231,6 @@ class TerminalViewState extends State<TerminalView> {
   }
 
   @override
-  void didUpdateWidget(TerminalView oldWidget) {
-    if (oldWidget.focusNode != widget.focusNode) {
-      if (oldWidget.focusNode == null) {
-        _focusNode.dispose();
-      }
-      _focusNode = widget.focusNode ?? FocusNode();
-    }
-    if (oldWidget.controller != widget.controller) {
-      if (oldWidget.controller == null) {
-        _controller.dispose();
-      }
-      _controller = widget.controller ?? TerminalController();
-    }
-    if (oldWidget.scrollController != widget.scrollController) {
-      if (oldWidget.scrollController == null) {
-        _scrollController.dispose();
-      }
-      _scrollController = widget.scrollController ?? ScrollController();
-    }
-    _shortcutManager.shortcuts = widget.shortcuts ?? defaultTerminalShortcuts;
-    super.didUpdateWidget(oldWidget);
-  } 
-  
-
-  @override
   void dispose() {
     if (widget.focusNode == null) {
       _focusNode.dispose();
