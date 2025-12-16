@@ -369,163 +369,106 @@ class TerminalViewState extends State<TerminalView> {
           top: BorderSide(color: widget.theme.foreground.withOpacity(0.3)),
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          _buildToolbarButton('Ctrl', _isCtrlPressed, toggleCtrl),
-          _buildDivider(),
-          _buildToolbarButton('Alt', _isAltPressed, toggleAlt),
-          _buildDivider(),
-          _buildToolbarButton('Esc', false, () {
-            _sendKey(TerminalKey.escape);
-          }),
-          _buildDivider(),
-          _buildToolbarButton('Tab', false, () {
-            _sendKey(TerminalKey.tab);
-          }),
-          _buildDivider(),
-          _buildToolbarButton('Del', false, () {
-            _sendKey(TerminalKey.backspace);
-          }),
-          _buildDivider(),
-          _buildToolbarButton('←', false, () {
-            _sendKey(TerminalKey.arrowLeft);
-          }),
-          _buildDivider(),
-          _buildVerticalArrowButton(),
-          _buildDivider(),
-          _buildToolbarButton('→', false, () {
-            _sendKey(TerminalKey.arrowRight);
-          }),
+          // 第一行：~ | < > = ( ↑ )
+          _buildToolbarRow(
+            buttons: [
+              _ButtonConfig('~', false, () => _sendText('~')),
+              _ButtonConfig('|', false, () => _sendText('|')),
+              _ButtonConfig('<', false, () => _sendText('<')),
+              _ButtonConfig('>', false, () => _sendText('>')),
+              _ButtonConfig('=', false, () => _sendText('=')),
+              _ButtonConfig('(', false, () => _sendText('(')),
+              _ButtonConfig('↑', false, () => _sendKey(TerminalKey.arrowUp)),
+              _ButtonConfig(')', false, () => _sendText(')')),
+            ],
+          ),
+          // 第二行：Ctrl Alt Esc Del Tab ← ↓ →
+          _buildToolbarRow(
+            buttons: [
+              _ButtonConfig('Ctrl', _isCtrlPressed, toggleCtrl),
+              _ButtonConfig('Alt', _isAltPressed, toggleAlt),
+              _ButtonConfig('Esc', false, () => _sendKey(TerminalKey.escape)),
+              _ButtonConfig('Del', false, () => _sendKey(TerminalKey.backspace)),
+              _ButtonConfig('Tab', false, () => _sendKey(TerminalKey.tab)),
+              _ButtonConfig('←', false, () => _sendKey(TerminalKey.arrowLeft)),
+              _ButtonConfig('↓', false, () => _sendKey(TerminalKey.arrowDown)),
+              _ButtonConfig('→', false, () => _sendKey(TerminalKey.arrowRight)),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return Container(
-      width: 0.5,
-      height: widget.toolbarHeight,
-      color: widget.theme.foreground.withOpacity(0.3),
-    );
-  }
-
-  Widget _buildVerticalArrowButton() {
+  Widget _buildToolbarRow({
+    required List<_ButtonConfig> buttons,
+  }) {
     return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        height: widget.toolbarHeight,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // 上箭头按钮
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () {
-                    _sendKey(TerminalKey.arrowUp);
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: widget.theme.foreground,
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 0),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        topRight: Radius.circular(4),
-                      ),
+      child: Row(
+        children: buttons.asMap().entries.map((entry) {
+          final index = entry.key;
+          final config = entry.value;
+          
+          return Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 1),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _buildToolbarButton(
+                      config.label,
+                      config.isActive,
+                      config.onPressed,
                     ),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text(
-                    '↑',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                  // 只在按钮之间添加分隔线，不在最后一个按钮后添加
+                  if (index < buttons.length - 1)
+                    Container(
+                      width: double.infinity,
+                      height: 0.5,
+                      color: widget.theme.foreground.withOpacity(0.2),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+                ],
               ),
             ),
-            // 分隔线
-            Container(
-              width: double.infinity,
-              height: 0.5,
-              color: widget.theme.foreground.withOpacity(0.3),
-            ),
-            // 下箭头按钮
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () {
-                    _sendKey(TerminalKey.arrowDown);
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: widget.theme.foreground,
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 0),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(4),
-                        bottomRight: Radius.circular(4),
-                      ),
-                    ),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    '↓',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          );
+        }).toList(),
       ),
     );
   }
 
   Widget _buildToolbarButton(String label, bool isActive, VoidCallback onPressed) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        height: widget.toolbarHeight,
-        child: TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            backgroundColor: isActive 
-              ? widget.theme.cursor 
-              : Colors.transparent,
-            foregroundColor: isActive 
-              ? widget.theme.background 
-              : widget.theme.foreground,
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(0, 0),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    return SizedBox.expand(
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          backgroundColor: isActive 
+            ? widget.theme.cursor 
+            : Colors.transparent,
+          foregroundColor: isActive 
+            ? widget.theme.background 
+            : widget.theme.foreground,
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(0, 0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(0),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
+          textAlign: TextAlign.center,
         ),
       ),
     );
   }
+
   void _sendKey(TerminalKey key) {
     final handled = widget.terminal.keyInput(
       key,
@@ -536,6 +479,12 @@ class TerminalViewState extends State<TerminalView> {
     if (handled) {
       _scrollToBottom();
     }
+  }
+
+  void _sendText(String text) {
+    widget.terminal.textInput(text);
+    _scrollToBottom();
+    _onCharacterInput();
   }
 
   void requestKeyboard() {
@@ -779,4 +728,12 @@ class _TerminalView extends LeafRenderObjectWidget {
       ..onEditableRect = onEditableRect
       ..composingText = composingText;
   }
+}
+
+class _ButtonConfig {
+  final String label;
+  final bool isActive;
+  final VoidCallback onPressed;
+
+  _ButtonConfig(this.label, this.isActive, this.onPressed);
 }
