@@ -49,7 +49,7 @@ class TerminalView extends StatefulWidget {
     this.hardwareKeyboardOnly = false,
     this.simulateScroll = true,
     this.showToolbar = true,
-    this.toolbarHeight = 36.0,
+    this.toolbarHeight = 60.0,
     this.toolbarBuilder,
     this.onModifierChanged,
   });
@@ -424,7 +424,7 @@ class TerminalViewState extends State<TerminalView> {
                     ),
                   ),
                   // 只在按钮之间添加分隔线，不在最后一个按钮后添加
-                  if (index < buttons.length - 1)
+                  if (index < buttons.length )
                     Container(
                       width: double.infinity,
                       height: 0.5,
