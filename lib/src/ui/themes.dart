@@ -53,4 +53,30 @@ class TerminalThemes {
     searchHitBackgroundCurrent: Color(0XFF31FF26),
     searchHitForeground: Color(0XFF000000),
   );
+
+  static const LightTheme = TerminalTheme(
+    cursor: Color(0XFF333333),
+    selection: Color(0X80A0C8FF),
+    foreground: Color(0XFF222222),
+    background: Color(0XFFF8F4E8),
+    black: Color(0XFF222222),
+    red: Color(0XFFAA2222),
+    green: Color(0XFF008800),
+    yellow: Color(0XFFAA8800),
+    blue: Color(0XFF0044BB),
+    magenta: Color(0XFFAA22AA),
+    cyan: Color(0XFF0088AA),
+    white: Color(0XFFAAAAAA),
+    brightBlack: Color(0XFF666666),
+    brightRed: Color(0XFFDD3333),
+    brightGreen: Color(0XFF00BB00),
+    brightYellow: Color(0XFFDDBB00),
+    brightBlue: Color(0XFF3366FF),
+    brightMagenta: Color(0XFFDD66DD),
+    brightCyan: Color(0XFF33CCCC),
+    brightWhite: Color(0XFFFFFFFF),
+    searchHitBackground: Color(0X80FFD700),
+    searchHitBackgroundCurrent: Color(0XFF80D080),
+    searchHitForeground: Color(0XFF000000),
+  );
 }
