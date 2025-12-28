@@ -52,13 +52,16 @@ class TerminalView extends StatefulWidget {
     this.toolbarHeight = 60.0,
     this.toolbarBuilder,
     this.onModifierChanged,
+    this.toolbarLayout,
   });
 
   /// Toolbar for mobile platform.Only can be used on Connecter app.
   final bool showToolbar;
   final double toolbarHeight;
-  final Widget Function(BuildContext context, TerminalViewState state)? toolbarBuilder;
+  final Widget Function(BuildContext context, TerminalViewState state)?
+      toolbarBuilder;
   final void Function(bool ctrlPressed, bool altPressed)? onModifierChanged;
+  final List<int>? toolbarLayout;
 
   /// The underlying terminal that this widget renders.
   final Terminal terminal;
@@ -156,7 +159,6 @@ class TerminalView extends StatefulWidget {
 }
 
 class TerminalViewState extends State<TerminalView> {
-  
   late FocusNode _focusNode;
 
   late final ShortcutManager _shortcutManager;
@@ -173,7 +175,8 @@ class TerminalViewState extends State<TerminalView> {
 
   late ScrollController _scrollController;
 
-  RenderTerminal get renderTerminal => _viewportKey.currentContext!.findRenderObject() as RenderTerminal;
+  RenderTerminal get renderTerminal =>
+      _viewportKey.currentContext!.findRenderObject() as RenderTerminal;
 
   // 工具栏状态
   bool _isCtrlPressed = false;
@@ -205,7 +208,7 @@ class TerminalViewState extends State<TerminalView> {
   void toggleAlt() => setAltPressed(!_isAltPressed);
 
   void resetModifiers() {
-    if (_isCtrlPressed || _isAltPressed){
+    if (_isCtrlPressed || _isAltPressed) {
       setState(() {
         _isCtrlPressed = false;
         _isAltPressed = false;
@@ -216,7 +219,8 @@ class TerminalViewState extends State<TerminalView> {
 
   void _onCharacterInput() {
     _modifierResetTimer?.cancel();
-    _modifierResetTimer = Timer(const Duration(milliseconds: 10), resetModifiers);
+    _modifierResetTimer =
+        Timer(const Duration(milliseconds: 10), resetModifiers);
   }
 
   @override
@@ -295,7 +299,8 @@ class TerminalViewState extends State<TerminalView> {
         onAction: (action) {
           _scrollToBottom();
           // Android sends TextInputAction.newline when the user presses the virtual keyboard's enter key.
-          if (action == TextInputAction.done || action == TextInputAction.newline) {
+          if (action == TextInputAction.done ||
+              action == TextInputAction.newline) {
             widget.terminal.keyInput(TerminalKey.enter);
           }
         },
@@ -331,8 +336,10 @@ class TerminalViewState extends State<TerminalView> {
       terminalController: _controller,
       onTapUp: _onTapUp,
       onTapDown: _onTapDown,
-      onSecondaryTapDown: widget.onSecondaryTapDown != null ? _onSecondaryTapDown : null,
-      onSecondaryTapUp: widget.onSecondaryTapUp != null ? _onSecondaryTapUp : null,
+      onSecondaryTapDown:
+          widget.onSecondaryTapDown != null ? _onSecondaryTapDown : null,
+      onSecondaryTapUp:
+          widget.onSecondaryTapUp != null ? _onSecondaryTapUp : null,
       readOnly: widget.readOnly,
       child: child,
     );
@@ -355,11 +362,18 @@ class TerminalViewState extends State<TerminalView> {
 
     return child;
   }
-  
+
   Widget _buildToolbar() {
     if (widget.toolbarBuilder != null) {
       return widget.toolbarBuilder!(context, this);
     }
+
+    final layout = widget.toolbarLayout ??
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+
+    final effectiveLayout = layout.length >= 16
+        ? layout.sublist(0, 16)
+        : [...layout, ...List.filled(16 - layout.length, 0)];
 
     return Container(
       height: widget.toolbarHeight,
@@ -371,46 +385,23 @@ class TerminalViewState extends State<TerminalView> {
       ),
       child: Column(
         children: [
-          // 第一行：~ | < > = ( ↑ )
-          _buildToolbarRow(
-            buttons: [
-              _ButtonConfig('~', false, () => _sendText('~')),
-              _ButtonConfig('|', false, () => _sendText('|')),
-              _ButtonConfig('<', false, () => _sendText('<')),
-              _ButtonConfig('>', false, () => _sendText('>')),
-              _ButtonConfig('=', false, () => _sendText('=')),
-              _ButtonConfig('(', false, () => _sendText('(')),
-              _ButtonConfig('↑', false, () => _sendKey(TerminalKey.arrowUp)),
-              _ButtonConfig(')', false, () => _sendText(')')),
-            ],
-          ),
-          // 第二行：Ctrl Alt Esc Del Tab ← ↓ →
-          _buildToolbarRow(
-            buttons: [
-              _ButtonConfig('Ctrl', _isCtrlPressed, toggleCtrl),
-              _ButtonConfig('Alt', _isAltPressed, toggleAlt),
-              _ButtonConfig('Esc', false, () => _sendKey(TerminalKey.escape)),
-              _ButtonConfig('Del', false, () => _sendKey(TerminalKey.backspace)),
-              _ButtonConfig('Tab', false, () => _sendKey(TerminalKey.tab)),
-              _ButtonConfig('←', false, () => _sendKey(TerminalKey.arrowLeft)),
-              _ButtonConfig('↓', false, () => _sendKey(TerminalKey.arrowDown)),
-              _ButtonConfig('→', false, () => _sendKey(TerminalKey.arrowRight)),
-            ],
-          ),
+          _buildToolbarRow(buttonIndices: effectiveLayout.sublist(0, 8)),
+          _buildToolbarRow(buttonIndices: effectiveLayout.sublist(8, 16)),
         ],
       ),
     );
   }
 
   Widget _buildToolbarRow({
-    required List<_ButtonConfig> buttons,
+    required List<int> buttonIndices,
   }) {
     return Expanded(
       child: Row(
-        children: buttons.asMap().entries.map((entry) {
-          final index = entry.key;
-          final config = entry.value;
-          
+        children: buttonIndices.asMap().entries.map((entry) {
+          final buttonIndex = entry.value;
+
+          final config = _getButtonConfig(buttonIndex);
+
           return Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 1),
@@ -423,13 +414,6 @@ class TerminalViewState extends State<TerminalView> {
                       config.onPressed,
                     ),
                   ),
-                  // 只在按钮之间添加分隔线，不在最后一个按钮后添加
-                  if (index < buttons.length )
-                    Container(
-                      width: double.infinity,
-                      height: 0.5,
-                      color: widget.theme.foreground.withOpacity(0.2),
-                    ),
                 ],
               ),
             ),
@@ -439,17 +423,111 @@ class TerminalViewState extends State<TerminalView> {
     );
   }
 
-  Widget _buildToolbarButton(String label, bool isActive, VoidCallback onPressed) {
+  _ButtonConfig _getButtonConfig(int index) {
+    switch (index) {
+      case 1:
+        return _ButtonConfig('~', false, () => _sendText('~'));
+      case 2:
+        return _ButtonConfig('|', false, () => _sendText('|'));
+      case 3:
+        return _ButtonConfig('<', false, () => _sendText('<'));
+      case 4:
+        return _ButtonConfig('>', false, () => _sendText('>'));
+      case 5:
+        return _ButtonConfig('=', false, () => _sendText('='));
+      case 6:
+        return _ButtonConfig('!', false, () => _sendText('!'));
+      case 7:
+        return _ButtonConfig('↑', false, () => _sendKey(TerminalKey.arrowUp));
+      case 8:
+        return _ButtonConfig('/', false, () => _sendText('/'));
+      case 9:
+        return _ButtonConfig('Ctrl', _isCtrlPressed, toggleCtrl);
+      case 10:
+        return _ButtonConfig('Alt', _isAltPressed, toggleAlt);
+      case 11:
+        return _ButtonConfig('Esc', false, () => _sendKey(TerminalKey.escape));
+      case 12:
+        return _ButtonConfig(
+            'Del', false, () => _sendKey(TerminalKey.backspace));
+      case 13:
+        return _ButtonConfig('Tab', false, () => _sendKey(TerminalKey.tab));
+      case 14:
+        return _ButtonConfig('←', false, () => _sendKey(TerminalKey.arrowLeft));
+      case 15:
+        return _ButtonConfig('↓', false, () => _sendKey(TerminalKey.arrowDown));
+      case 16:
+        return _ButtonConfig(
+            '→', false, () => _sendKey(TerminalKey.arrowRight));
+      case 17:
+        return _ButtonConfig('?', false, () => _sendText('?'));
+      case 18:
+        return _ButtonConfig('\\', false, () => _sendText('\\'));
+      case 19:
+        return _ButtonConfig('*', false, () => _sendText('*'));
+      case 20:
+        return _ButtonConfig('\$', false, () => _sendText('\$'));
+      case 21:
+        return _ButtonConfig('#', false, () => _sendText('#'));
+      case 22:
+        return _ButtonConfig('-', false, () => _sendText('-'));
+      case 23:
+        return _ButtonConfig('+', false, () => _sendText('+'));
+      case 24:
+        return _ButtonConfig('`', false, () => _sendText('`'));
+      case 25:
+        return _ButtonConfig('[', false, () => _sendText('['));
+      case 26:
+        return _ButtonConfig(']', false, () => _sendText(']'));
+      case 27:
+        return _ButtonConfig('{', false, () => _sendText('{'));
+      case 28:
+        return _ButtonConfig('}', false, () => _sendText('}'));
+      case 29:
+        return _ButtonConfig('<', false, () => _sendText('<'));
+      case 30:
+        return _ButtonConfig('>', false, () => _sendText('>'));
+      case 31:
+        return _ButtonConfig(':', false, () => _sendText(':'));
+      case 32:
+        return _ButtonConfig(';', false, () => _sendText(';'));
+      case 33:
+        return _ButtonConfig('(', false, () => _sendText('('));
+      case 34:
+        return _ButtonConfig(')', false, () => _sendText(')'));
+      case 35:
+        return _ButtonConfig("'", false, () => _sendText("'"));
+      case 36:
+        return _ButtonConfig('"', false, () => _sendText('"'));
+      case 37:
+        return _ButtonConfig(',', false, () => _sendText(','));
+      case 38:
+        return _ButtonConfig('.', false, () => _sendText('.'));
+      case 39:
+        return _ButtonConfig('@', false, () => _sendText('@'));
+      case 40:
+        return _ButtonConfig('&', false, () => _sendText('&'));
+
+      default:
+        // 对于无效的索引，返回一个空按钮
+        return _ButtonConfig('', false, () {});
+    }
+  }
+
+  Widget _buildToolbarButton(
+      String label, bool isActive, VoidCallback onPressed) {
+    // 如果标签为空，不显示按钮
+    if (label.isEmpty) {
+      return const SizedBox.expand();
+    }
+
     return SizedBox.expand(
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          backgroundColor: isActive 
-            ? widget.theme.cursor 
-            : Colors.transparent,
-          foregroundColor: isActive 
-            ? widget.theme.background 
-            : widget.theme.foreground,
+          backgroundColor: isActive ? widget.theme.cursor : Colors.transparent,
+          foregroundColor:
+              isActive ? widget.theme.background : widget.theme.foreground,
           padding: EdgeInsets.zero,
           minimumSize: const Size(0, 0),
           shape: RoundedRectangleBorder(
@@ -500,7 +578,8 @@ class TerminalViewState extends State<TerminalView> {
   }
 
   Rect get globalCursorRect {
-    return renderTerminal.localToGlobal(renderTerminal.cursorOffset) & renderTerminal.cellSize;
+    return renderTerminal.localToGlobal(renderTerminal.cursorOffset) &
+        renderTerminal.cellSize;
   }
 
   void _onTapUp(TapUpDetails details) {
@@ -542,11 +621,13 @@ class TerminalViewState extends State<TerminalView> {
     // On mobile platforms there is no guarantee that virtual keyboard will
     // generate hardware key events. So we need first try to send the key
     // as a hardware key event. If it fails, then we send it as a text input.
-    final consumed = key == null ? false : widget.terminal.keyInput(
-      key,
-      ctrl: ctrl,
-      alt: alt,
-    );
+    final consumed = key == null
+        ? false
+        : widget.terminal.keyInput(
+            key,
+            ctrl: ctrl,
+            alt: alt,
+          );
 
     if (!consumed) {
       widget.terminal.textInput(text);
@@ -620,7 +701,7 @@ class TerminalViewState extends State<TerminalView> {
 
     final logicalKey = event.logicalKey;
     final keyLabel = logicalKey.keyLabel;
-  
+
     if (keyLabel.isNotEmpty && keyLabel.length == 1) {
       final char = keyLabel.codeUnitAt(0);
       return char >= 32 && char <= 126;
@@ -628,6 +709,7 @@ class TerminalViewState extends State<TerminalView> {
 
     return false;
   }
+
   void _onKeyboardShow() {
     if (_focusNode.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
