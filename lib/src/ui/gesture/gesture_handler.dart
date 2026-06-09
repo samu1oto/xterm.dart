@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:xterm/src/core/mouse/button.dart';
 import 'package:xterm/src/core/mouse/button_state.dart';
@@ -72,7 +73,7 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
       onTertiaryTapUp: onSecondaryTapUp,
       onLongPressStart: onLongPressStart,
       onLongPressMoveUpdate: onLongPressMoveUpdate,
-      // onLongPressUp: onLongPressUp,
+      onLongPressUp: onLongPressUp,
       onDragStart: onDragStart,
       onDragUpdate: onDragUpdate,
       onDoubleTapDown: onDoubleTapDown,
@@ -172,7 +173,14 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
     );
   }
 
-  // void onLongPressUp() {}
+  void onLongPressUp() {
+    final selection = widget.terminalController.selection;
+    if (selection != null) {
+      final text = terminalView.widget.terminal.buffer.getText(selection);
+      widget.terminalController.clearSelection();
+      Clipboard.setData(ClipboardData(text: text));
+    }
+  }
 
   void onDragStart(DragStartDetails details) {
     _lastDragStartDetails = details;
